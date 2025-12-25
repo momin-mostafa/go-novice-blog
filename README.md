@@ -1,4 +1,4 @@
-checkout this blog site : [link](https://momin-mostafa.github.io/blog-go-novice/)
+checkout this blog site : [link](https://momin-mostafa.github.io/go-novice-blog/)
 
 # My Go Journeys
 
