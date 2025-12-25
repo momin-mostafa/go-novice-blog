@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Blog 3 – Unit Testing in Go</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/go.min.js"></script>
+    <script>hljs.highlightAll();</script>
+</head>
+
+<body>
+
+    <nav>
+        <div class="title"><a href="index.html" style="text-decoration:none;color:var(--text)">My Go Journeys</a></div>
+        <button id="themeToggle">🌙 Dark Mode</button>
+    </nav>
+
+    <h1>Unit Testing in Go – Mocking the Database</h1>
+
+    <p><strong>November 28, 2025 – 10:39 PM</strong></p>
+
+    <p>Okay, so it’s been a while since I last wrote Go for this project. Honestly, I’ve basically forgotten everything
+        I learned so far. The app side has gained some momentum, but my progress in Go? Pretty much wiped clean.</p>
+
+    <p>As a SWE, I guess this kind of thing happens sometimes (take it with a grain of salt!).</p>
+
+    <p>I’m going to go over all the progress I made—both on record and off record—and see if my notes are actually worth
+        anything. If not, this blog will stay unpublished. And if you’re reading this, then congrats, it worked!</p>
+
+    <hr>
+
+    <p>I started by reading <a href="https://momin-mostafa.github.io/blog-go-novice/blog_1.html">blog_1</a>, which was
+        about creating a RESTful API endpoint.</p>
+
+    <p>But I ran into some issues with my own blog. The websites I generated through ChatGPT aren’t consistent. There’s
+        no navigation between blogs, and no listing of posts. Time for some “vibe coding” for the HTML part—because
+        honestly, I hate doing boring stuff like this. Later, when I have more blogs, I might clean it up and make it
+        look professional. For now, the blog site isn’t a priority.</p>
+
+    <hr>
+
+    <p><strong>November 28, 2025 – 11:20 PM</strong></p>
+
+    <p>I’m already three coffees in, and I haven’t made any real progress yet. I’ve mostly been fixing the website to
+        make it readable—for you guys, my imaginary audience!</p>
+
+    <p>After struggling with AI, I cleaned things up a bit. I removed 37 lines, added 4 lines, and now all my pages have
+        a consistent look.</p>
+
+    <hr>
+
+    <p><strong>November 29, 2025 – 12:13 AM</strong></p>
+
+    <p>Updated the blogging site one last time. It’s more reader-friendly now.</p>
+
+    <p>After reading the first two blogs, I decided it’s time to focus on writing test cases to test API endpoints and
+        their behavior.</p>
+
+    <hr>
+
+    <p><strong>November 29, 2025 – 5:59 AM</strong></p>
+
+    <p>I promised myself to focus on testing, so that’s exactly what I did. I started with the course module as my first
+        testing ground and wrote some prompts to generate initial test cases.</p>
+
+    <p>When I started the project, I wasn’t sure how the app would look or which fields I would need. So, I had to
+        refactor the course module—that’s why I chose it.</p>
+
+    <p>Along the way, I discovered a new package: <a href="https://github.com/DATA-DOG/go-sqlmock">go-sqlmock</a>. It
+        lets me mock the database, so I can write proper unit tests. It took me a while to figure out the best way to
+        test things.</p>
+
+    <p>Here’s a snippet:</p>
+
+    <pre><code>db, mock, err := sqlmock.New()
+if err != nil {
+    t.Fatalf("failed to open sqlmock database: %s", err)
+}
+defer db.Close()
+
+rows := sqlmock.NewRows([]string{"id", "name"}).
+    AddRow(1, "Go Basics").
+    AddRow(2, "Advanced Go")
+
+mock.ExpectQuery("SELECT \\\\* FROM courses").
+    WillReturnRows(rows)
+</code></pre>
+
+    <p>I created a helper file <code>mock_db_test.go</code> to set up and tear down the mock DB:</p>
+
+    <pre><code>package test
+
+import (
+	"testing"
+
+	"github.com/DATA-DOG/go-sqlmock"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
+)
+
+func setupMockDB(t *testing.T) (*gorm.DB, sqlmock.Sqlmock) {
+	db, mock, err := sqlmock.New()
+	if err != nil {
+		t.Fatalf("failed to create sqlmock: %v", err)
+	}
+
+	gormDB, err := gorm.Open(postgres.New(postgres.Config{
+		Conn: db,
+	}), &gorm.Config{})
+	if err != nil {
+		t.Fatalf("failed to open gorm db: %v", err)
+	}
+
+	return gormDB, mock
+}
+
+func closeDB(db *gorm.DB) {
+	sqlDB, _ := db.DB()
+	defer sqlDB.Close()
+}
+</code></pre>
+
+    <p>Using this helper, I wrote tests for <code>CourseRequestHandler</code>. The basic idea is mocking queries and
+        verifying that the responses match expectations. For example, here’s a simple GET test:</p>
+
+    <pre><code>func TestGetAllCourses_GroupAndTeacher(t *testing.T) {
+	db, mock := setupMockDB(t)
+	defer closeDB(db)
+
+	rows := sqlmock.NewRows([]string{"id", "created_at", "updated_at", "deleted_at", "teacher_id", "classroom_code", "group"}).
+		AddRow(1, time.Now(), time.Now(), nil, 10, "101", "A")
+
+	mock.ExpectQuery(`SELECT \* FROM "courses" WHERE \("courses"\."teacher_id" = \$1 AND "courses"\."group" = \$2\) AND "courses"\."deleted_at" IS NULL`).
+		WithArgs(uint(10), "A").
+		WillReturnRows(rows)
+
+	req := httptest.NewRequest("GET", "/course?group=A&teacher_id=10", nil)
+	rr := httptest.NewRecorder()
+
+	handler := &coursemodel.CourseRequestHandler{}
+	handler.GetAllCourses(req, rr, db)
+
+	if rr.Code != http.StatusOK {
+		t.Errorf("expected 200, got %d", rr.Code)
+	}
+
+	var courses []coursemodel.Course
+	if err := json.NewDecoder(rr.Body).Decode(&courses); err != nil {
+		t.Fatalf("failed to decode response: %v", err)
+	}
+	if len(courses) != 1 {
+		t.Errorf("expected 1 course, got %d", len(courses))
+	}
+}
+</code></pre>
+
+    <p>I also wrote POST tests for creating courses.</p>
+
+    <hr>
+
+    <p><strong>Lessons Learned</strong></p>
+
+    <ul>
+        <li><strong>Mocking the Database</strong>: <code>go-sqlmock</code> is a lifesaver for unit testing without
+            touching real data.</li>
+        <li><strong>Structs for Separation of Concerns</strong>:
+            <ul>
+                <li><code>User</code> → internal server representation</li>
+                <li><code>UserResponse</code> → what we send to clients (hides sensitive fields like passwords)</li>
+                <li><code>CreateUserRequest</code> → what we receive from clients</li>
+            </ul>
+        </li>
+    </ul>
+
+    <p>Example:</p>
+
+    <pre><code>type UserResponse struct {
+	ID             uint   `json:"id"`
+	FullName       string `json:"full_name"`
+	Phone          string `json:"phone"`
+	StudentID      string `json:"student_id"`
+	PersonalEmail  string `json:"personal_email"`
+	UnivesityEmail string `json:"university_email"`
+}
+
+func (user User) toResponse() UserResponse {
+	return UserResponse{
+		ID:             user.ID,
+		FullName:       user.FullName,
+		Phone:          user.Phone,
+		StudentID:      user.StudentID,
+		PersonalEmail:  user.PersonalEmail,
+		UnivesityEmail: user.UnivesityEmail,
+	}
+}
+</code></pre>
+
+    <p>For requests, we now have:</p>
+
+    <pre><code>type UserRequest struct {
+	FullName       string `json:"full_name"`
+	Phone          string `json:"phone"`
+	StudentID      string `json:"student_id"`
+	PersonalEmail  string `json:"personal_email"`
+	HashedPassword string `json:"password"`
+	UnivesityEmail string `json:"university_email"`
+}
+
+func (req *UserRequest) createUser() User {
+	return User{
+		FullName:       req.FullName,
+		Phone:          req.Phone,
+		StudentID:      req.StudentID,
+		PersonalEmail:  req.PersonalEmail,
+		HashedPassword: req.HashedPassword,
+		UnivesityEmail: req.UnivesityEmail,
+	}
+}
+</code></pre>
+
+    <hr>
+
+    <h3>Today’s Takeaways</h3>
+
+    <ul>
+        <li>Learned to <strong>mock the database</strong> for proper unit testing.</li>
+        <li>Introduced three separate structs: <strong>User</strong>, <strong>UserResponse</strong>, and
+            <strong>UserRequest</strong> for better separation of concerns.</li>
+        <li>Wrote unit tests for both <strong>Course</strong> and <strong>User</strong> modules.</li>
+    </ul>
+
+
+    <div id="blogNav" style="margin-top:40px; display:flex; justify-content:space-between;"></div>
+
+    <footer>
+        © 2025 Md Al Momin Mostafa — All rights reserved.
+    </footer>
+    
+    <script src="script.js" defer></script>
+
+</body>
+
+</html>

@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Blog 1 – Getting Started with Go</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/languages/go.min.js"></script>
+    <script>hljs.highlightAll();</script>
+</head>
+
+<body>
+    <nav>
+        <div class="title"><a href="index.html" style="text-decoration:none;color:var(--text)">My Go Journeys</a></div>
+        <button id="themeToggle">🌙 Dark Mode</button>
+    </nav>
+
+    <h1>Getting Started with Go: Building a RESTful API Server with PostgreSQL Database Integration - A Beginner's
+        Journey</h1>
+
+    <p><strong>May 30, 2025 10:56 PM</strong></p>
+
+    <p>I don’t have any prior experience with Go. Though I did some API development which was pretty basic. I am
+        proficient in OOP and have little to no experience with functional programming language. So, WHY AM I DOING IT?
+    </p>
+
+    <p>Answer is to push myself out of my comfort zone.</p>
+
+    <p>First of all I got to find out that Go was created by the same creator of B and C language. I do have some prior
+        experience with C which may help me understand Go. I went through Go’s documentation and some tutorials. And I
+        believe I got a good grasp of some fundamentals like functions (higher order functions & first class functions),
+        closures and how structure is similar to classes but without methods. Here we can add functions to a structure
+        just like C.</p>
+
+    <p>So initially I want to develop a Go server that gives a response to an HTTP request.</p>
+
+    <h2>Initial Setup</h2>
+
+    <p>I created a folder named <code class="go">backend</code> and a file named <code
+            class="language-go">main.go</code>.</p>
+
+    <pre><code class="go">package main
+
+import "fmt"
+
+func main() {
+
+}
+
+func init() {
+    fmt.Println("Initalizing server..")
+}
+</code></pre>
+
+    <h2>Discovering Go Docs</h2>
+
+    <pre><code class="go">go doc &lt;any standard library name&gt;
+</code></pre>
+
+    <p>This command opens documentation for that library.</p>
+
+    <pre><code class="go">go doc net
+go doc net/http
+</code></pre>
+
+    <p>I discovered <code class="go">ListenAndServe</code> and <code class="go">HandleFunc</code> and
+        updated my <code class="go">main.go</code>:</p>
+
+    <pre><code class="go">package main
+
+import (
+    "fmt"
+    "log"
+    "net/http"
+)
+
+var port string = ":8080"
+
+func main() {
+
+    http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+        fmt.Fprintf(w, "Hello, world")
+    })
+
+    log.Fatal(http.ListenAndServe(port, nil))
+}
+
+func init() {
+    fmt.Println("Initalizing server..")
+    fmt.Println("serving at : http://localhost", port)
+}
+</code></pre>
+
+    <p>I wondered why this line uses <code class="go">nil</code>:</p>
+
+    <pre><code class="go">log.Fatal(http.ListenAndServe(port, nil))
+</code></pre>
+
+    <p>According to docs: passing <code class="go">nil</code> means using the default <code
+            class="language-go">ServeMux</code>.</p>
+
+    <h2>Switching to Custom ServeMux</h2>
+
+    <pre><code class="go">mux := http.NewServeMux()
+mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
+    fmt.Fprintf(w, "Hello, world")
+})
+
+log.Fatal(http.ListenAndServe(port, mux))
+</code></pre>
+
+    <h2>Making the Route RESTful</h2>
+
+    <pre><code class="go">func rootRequestHandler(w http.ResponseWriter, r *http.Request) {
+    switch r.Method {
+    case http.MethodGet:
+        handleGET(w)
+    case http.MethodPost:
+        handlePOST(w)
+    }
+}
+
+func handleGET(w http.ResponseWriter) {
+    fmt.Fprintf(w, "Hello, world from get method")
+}
+
+func handlePOST(w http.ResponseWriter) {
+    fmt.Fprintf(w, "Hello, world from POST")
+}
+</code></pre>
+
+    <p>And updating <code class="go">main()</code>:</p>
+
+    <pre><code class="go">mux.HandleFunc("/", rootRequestHandler)
+</code></pre>
+
+    <h2>Adding PostgreSQL</h2>
+
+    <p>After setting up PostgreSQL locally, I connected Go with the database:</p>
+
+    <pre><code class="go">package main
+
+import (
+    "database/sql"
+    "fmt"
+    "log"
+    "net/http"
+
+    _ "github.com/lib/pq"
+)
+
+var port string = ":8080"
+var db *sql.DB
+...
+</code></pre>
+
+    <p>I used a helper function <code class="go">initalizeDB()</code> to create the DB connection and stored
+        the pointer in a
+        global variable.</p>
+
+    <p>Not ideal yet since I don’t check for nil pointers properly — but I will refine this later.</p>
+
+    <h2>Break Time</h2>
+
+    <p><em>May 30, 2025 1:27 AM — taking a break to enjoy the monsoon rain.</em></p>
+
+    <div id="blogNav" style="margin-top:40px; display:flex; justify-content:space-between;"></div>
+
+    <footer>
+        © 2025 Md Al Momin Mostafa — All rights reserved.
+    </footer>
+    
+    <script src="script.js" defer></script>
+</body>
+
+</html>
