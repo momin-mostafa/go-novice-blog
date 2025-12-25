@@ -26,7 +26,7 @@ if (toggleBtn) {
 
 // --- GitHub Navigation Logic ---
 const username = "momin-mostafa";   // YOUR GitHub username
-const repo = "blog-go-novice";      // YOUR repo name
+const repo = "go-novice-blog";      // YOUR repo name
 
 async function buildNavigation() {
     const blogNav = document.getElementById("blogNav");
